@@ -1,83 +1,132 @@
-########################################################################################################################
-#                                       HydrOptiFrame: Water Excitation RF pulse design                                #
-########################################################################################################################
-# Numerical Optimisation of RF pulse to find the best WE RF pulse
-# Optimization of nodes and interpolation with  
-#
-#
+"""
+HydrOptiFrame: Water Excitation RF pulse design
 
-#                                                   Import stuff                                                       #
+Numerical optimisation of an RF pulse waveform for water excitation (WE).
+We optimise a set of control points (amplitude and phase), interpolate them
+into a smooth waveform (B-spline), simulate magnetisation response via Bloch
+equations (small-angle approx), and minimise a composed loss.
+
+Author: Xavier Sieber
+Date: 05.03.2026
+"""
+
+from __future__ import annotations
+
 import numpy as np
-from Modules.PulsePTAGen import pta_gen
-from Modules import constants, lossfunctions, pulsegen, plots, simulations
 import optuna
 
-#%%#                                               Const generate                                                      #
+from Modules.PulsePTAGen import pta_gen
+from Modules import constants, lossfunctions, pulsegen, plots, simulations
 
-Tseq = np.linspace(0, constants.T, constants.NT)
-dF = np.linspace(-constants.F, constants.F, constants.NF)
-#%%#                                              Optimisation loop                                                    #
 
-def binom_opti(trial):
-    phi = []
-    amp = []
+# =============================================================================
+# Frequency / time axes used throughout the optimisation and simulations
+# =============================================================================
+TSEQ = np.linspace(0, constants.T, constants.NT)          # time axis (s)
+DF = np.linspace(-constants.F, constants.F, constants.NF) # off-resonance axis (Hz)
 
-    for i in range(Npoints):
-        if i == 0:
-            phi = [trial.suggest_float('phi1', -phiLim, phiLim, step=0.001)]
-            amp = [trial.suggest_float('amp1', ampLim1, ampLim2, step=0.001)]
-        else:
-            phi = np.concatenate([phi, [trial.suggest_float('phi'+str(i+1), -phiLim, phiLim, step=0.001)]])
-            amp = np.concatenate([amp, [trial.suggest_float('amp'+str(i+1), ampLim1, ampLim2, step=0.001)]])
 
-    if setEdgesToZero:
-        amp = np.concatenate([[0], amp, [0]])
-        phi = np.concatenate([[0], phi, [0]])
+# =============================================================================
+# Optimisation configuration (tune these)
+# =============================================================================
+SET_EDGES_TO_ZERO = 0        # if True: enforce 0 amplitude/phase at edges
+N_POINTS = 15                # number of control points to optimise
+N_EPOCHS = 1000              # number of Optuna trials
 
-    b1_amp, b1_phase = pulsegen.randBsplineN(amp, phi) # interpolate the suggested points to create the waveform
-    M1 = simulations.pulse_offset_relax(b1_amp, b1_phase, dF) # Bloch equations that uses small angle approx
-    loss = lossfunctions.composed_loss(M1) #compute the loss function from the final magnetisation vector
+PI = np.pi                   # use numpy's pi (more accurate than 3.142)
+AMP_LIM_LOW = 0.01
+AMP_LIM_HIGH = 1.0
+PHI_LIM = 4 * PI             # +/- phase limit
 
-    return loss
 
-#%%#                                                 Optimize                                                          #
-# Optimization parameters
-setEdgesToZero =0
-Npoints = 15
-pi = 3.142
-ampLim1 = 0.01
-ampLim2 = 1
-phiLim = 4*pi
-X0 = []
-N_epochs = 1000
+def objective(trial: optuna.Trial) -> float:
+    """
+    Optuna objective:
+    1) Suggest control points (amp, phi)
+    2) Interpolate them to waveform (B1_amp, B1_phase)
+    3) Simulate magnetisation response across DF
+    4) Compute and return loss (to minimise)
+    """
+    # Suggest amplitude and phase control points
+    amp = np.array(
+        [trial.suggest_float(f"amp{i+1}", AMP_LIM_LOW, AMP_LIM_HIGH, step=0.001)
+         for i in range(N_POINTS)],
+        dtype=float,
+    )
+    phi = np.array(
+        [trial.suggest_float(f"phi{i+1}", -PHI_LIM, PHI_LIM, step=0.001)
+         for i in range(N_POINTS)],
+        dtype=float,
+    )
 
-sampler = optuna.samplers.CmaEsSampler(n_startup_trials=np.round(N_epochs/10), sigma0=1/25)
-study = optuna.create_study(sampler=sampler)
-study.optimize(binom_opti, n_trials=N_epochs)
+    # Optional: enforce zero edges (useful to avoid sharp jump at start/end)
+    if SET_EDGES_TO_ZERO:
+        amp = np.concatenate(([0.0], amp, [0.0]))
+        phi = np.concatenate(([0.0], phi, [0.0]))
 
-#%%#                                                Plot  Results                                                          #
+    # Interpolate points into a smooth RF waveform
+    b1_amp, b1_phase = pulsegen.randBsplineN(amp, phi)
 
-best_p = study.best_params
+    # Simulate magnetisation response using Bloch equations (small-angle approx)
+    M = simulations.pulse_offset_relax(b1_amp, b1_phase, DF)
 
-nparr = np.array(list(best_p.items()))
-a = nparr[:,1]
-amp = a[1::2]
-phi = a[::2]
+    # Compute scalar loss from final magnetisation
+    return float(lossfunctions.composed_loss(M))
 
-B1_amp, B1_phase = pulsegen.randBsplineN(amp, phi, 30)
-M = simulations.pulse_offset_relax(B1_amp, B1_phase, dF)
+
+# =============================================================================
+# Run optimisation
+# =============================================================================
+sampler = optuna.samplers.CmaEsSampler(
+    n_startup_trials=int(np.round(N_EPOCHS / 10)),
+    sigma0=1 / 25,
+)
+
+study = optuna.create_study(sampler=sampler, direction="minimize")
+study.optimize(objective, n_trials=N_EPOCHS)
+
+
+# =============================================================================
+# Post-processing: rebuild best waveform, simulate, plot, export
+# =============================================================================
+best_params = study.best_params
+
+# IMPORTANT: don't rely on dict insertion order.
+# Reconstruct amp/phi in the same order you defined them in the objective.
+amp_best = np.array([best_params[f"amp{i+1}"] for i in range(N_POINTS)], dtype=float)
+phi_best = np.array([best_params[f"phi{i+1}"] for i in range(N_POINTS)], dtype=float)
+
+if SET_EDGES_TO_ZERO:
+    amp_best = np.concatenate(([0.0], amp_best, [0.0]))
+    phi_best = np.concatenate(([0.0], phi_best, [0.0]))
+
+# Interpolate (optionally with a higher resolution parameter, like your "30")
+B1_amp, B1_phase = pulsegen.randBsplineN(amp_best, phi_best, 30)
+
+# Simulate response and compute transverse magnitude
+M = simulations.pulse_offset_relax(B1_amp, B1_phase, DF)
 M_xy = np.abs(M[:, :, 0] + 1j * M[:, :, 1])
 
-title = "spl_" + str(int(constants.SYSFIELD * 10)) + "T_" + str(Npoints) + "p_" + str(int(
-        constants.T * 1000)) + "ms_" + str(int(constants.L2*10000))+"L2_"+str(constants.FATBAND)+"FB"
+# Build a descriptive title / filename tag
+title = (
+    f"spl_{int(constants.SYSFIELD * 10)}T_"
+    f"{N_POINTS}p_{int(constants.T * 1000)}ms_"
+    f"{int(constants.L2 * 10000)}L2_{constants.FATBAND}FB"
+)
 
-plots.pulse_amp_phase_freq_spl(M_xy, B1_amp, B1_phase, amp, phi, title)
-#plots.plot_3d_vect(M, title)
+# Plot results
+plots.pulse_amp_phase_freq_spl(M_xy, B1_amp, B1_phase, amp_best, phi_best, title)
 plots.amp_phase_paramno(B1_amp, B1_phase, title)
 
-MB1 = simulations.b1_sim_off(amp, phi, dF)
-
+# B1-map simulation + plot
+MB1 = simulations.b1_sim_off(amp_best, phi_best, DF)
 plots.b1_map(MB1)
-#%%                                              Generate pulse file
 
-pta_gen(title, B1_amp[:], -B1_phase[:], constants.T, "fatfreq = "+str(constants.FATFREQ)+" l1 = "+str(constants.L1))
+# Export pulse file
+pta_gen(
+    title,
+    B1_amp[:],
+    -B1_phase[:],  # your sign convention
+    constants.T,
+    f"fatfreq = {constants.FATFREQ} l1 = {constants.L1}",
+)
