@@ -1,0 +1,12 @@
+numpy~=1.19.5
+matplotlib~=3.3.4
+tensorflow
+sigpy~=0.1.22
+numba~=0.53.1
+joblib~=1.0.1
+
+optuna~=2.8.0
+tqdm~=4.60.0
+scipy~=1.6.2
+scikit-learn~=0.24.2
+humpday~=0.4.8
