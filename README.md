@@ -11,7 +11,7 @@ Overview
 
 Testing 
 
-To test the script change the parameters of your pulse (field strength, duration, etc) in Modules/constants.py and run BsplineOptuna.py. It will start to optimize a pulse and display the best pulse found at the end.
+To test the script change the parameters of your pulse (field strength, duration, etc) in Modules/constants.py and run HydrOptiFrame.py. It will start to optimize a pulse and display the best pulse found at the end.
 
 
 Citation
