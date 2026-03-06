@@ -74,6 +74,9 @@ def main() -> None:
     # Export the final pulse in PTA format for downstream use.
     results.export_pta()
 
+    # Create a txt dump with pulse and simulations parameters.
+    results.write_report()
+
 
 if __name__ == "__main__":
     main()

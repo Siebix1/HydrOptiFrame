@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from datetime import datetime
-from zoneinfo import ZoneInfo
+
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -46,7 +46,7 @@ class PulseResults:
         Example:
             HydrOptiFrame_Pulse_3T_2p000ms_20260306_153512
         """
-        timestamp = datetime.now(ZoneInfo("Europe/Zurich")).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         field_str = f"{self.optimiser.SYSFIELD:g}T".replace(".", "p")
         duration_str = f"{self.pulse.T:.3f}ms".replace(".", "p")
@@ -105,10 +105,7 @@ class PulseResults:
         B1_phase: np.ndarray,
         T: float,
         comment: str = "No comment provided.",
-        ) -> None:
-        """
-        Export the RF pulse to Siemens PTA format.
-        """
+    ) -> None:
         if len(B1_amp) != len(B1_phase):
             raise ValueError("B1_amp and B1_phase must have the same length.")
 
@@ -122,12 +119,9 @@ class PulseResults:
         powerInt = np.sum(np.abs(B1_norm**2))
         absInt = np.sum(np.abs(B1_norm))
 
-        output_dir = Path("PulsesPTAfiles")
-        output_dir.mkdir(parents=True, exist_ok=True)
+        output_file = self.output_dir / f"{title}.pta"
 
-        output_file = output_dir / f"{title}.pta"
-
-        with open(output_file, "w", newline="") as f:
+        with open(output_file, "w", encoding="utf-8", newline="") as f:
             f.write(f"PULSENAME:\t{title}\r\n")
             f.write(f"COMMENT:\t{comment}\r\n")
             f.write(f"REFGRAD:\t{refgrad}\r\n")
@@ -147,6 +141,111 @@ class PulseResults:
                 )
 
         print("Pulse file done")
+    
+
+    def _format_value(self, value) -> str:
+        if isinstance(value, np.ndarray):
+            return np.array2string(
+                value,
+                precision=6,
+                separator=", ",
+                threshold=1000000,
+                max_line_width=140,
+            )
+
+        if isinstance(value, dict):
+            lines = []
+            for key, val in value.items():
+                lines.append(f"  {key}: {self._format_value(val)}")
+            return "\n".join(lines)
+
+        return str(value)
+
+    def write_report(self) -> None:
+        """
+        Write a text report containing all relevant pulse and simulation
+        parameters for this optimisation run.
+        """
+        report_path = self.output_dir / "report.txt"
+
+        b1_amp, b1_phase = self.pulse.build_waveform()
+
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write("HydrOptiFrame report\n")
+            f.write("=" * 80 + "\n\n")
+
+            f.write(f"Run folder       : {self.output_dir.name}\n")
+            f.write(f"Title            : {self.title}\n")
+            f.write(
+                "Timestamp        : "
+                + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                + "\n\n"
+            )
+
+            f.write("Pulse parameters\n")
+            f.write("-" * 80 + "\n")
+            f.write(f"T [ms]           : {self.pulse.T}\n")
+            f.write(f"NT               : {self.pulse.NT}\n")
+            f.write(f"DT [ms]          : {self.pulse.DT}\n")
+            f.write(f"flip [deg]       : {self.pulse.flip}\n")
+            f.write(f"waveform_type    : {self.pulse.waveform_type}\n")
+            f.write(f"spline_order     : {self.pulse.spline_order}\n")
+            f.write(f"set_edges_to_zero: {self.pulse.set_edges_to_zero}\n")
+            f.write(f"waveform_params  : {self._format_value(self.pulse.waveform_params)}\n")
+            f.write(f"amp              : {self._format_value(self.pulse.amp)}\n")
+            f.write(f"phi              : {self._format_value(self.pulse.phi)}\n")
+            f.write(f"amp_with_edges   : {self._format_value(self.pulse.amp_with_edges)}\n")
+            f.write(f"phi_with_edges   : {self._format_value(self.pulse.phi_with_edges)}\n")
+            f.write(f"B1_amp           : {self._format_value(b1_amp)}\n")
+            f.write(f"B1_phase         : {self._format_value(b1_phase)}\n\n")
+
+            f.write("Optimiser / simulation parameters\n")
+            f.write("-" * 80 + "\n")
+            f.write(f"n_points         : {self.optimiser.n_points}\n")
+            f.write(f"n_epochs         : {self.optimiser.n_epochs}\n")
+            f.write(f"amp_lim_low      : {self.optimiser.amp_lim_low}\n")
+            f.write(f"amp_lim_high     : {self.optimiser.amp_lim_high}\n")
+            f.write(f"phi_lim          : {self.optimiser.phi_lim}\n")
+            f.write(f"sigma0           : {self.optimiser.sigma0}\n\n")
+
+            f.write(f"GYR              : {self.optimiser.GYR}\n")
+            f.write(f"SYSFIELD [T]     : {self.optimiser.SYSFIELD}\n")
+            f.write(f"SYSFREQ [Hz]     : {self.optimiser.SYSFREQ}\n")
+            f.write(f"DELTAFREQFAT     : {self.optimiser.DELTAFREQFAT}\n")
+            f.write(f"FATFREQ [Hz]     : {self.optimiser.FATFREQ}\n\n")
+
+            f.write(f"TE [ms]          : {self.optimiser.TE}\n")
+            f.write(f"TR [ms]          : {self.optimiser.TR}\n")
+            f.write(f"T1 [ms]          : {self.optimiser.T1}\n")
+            f.write(f"T2 [ms]          : {self.optimiser.T2}\n\n")
+
+            f.write(f"NF               : {self.optimiser.NF}\n")
+            f.write(f"NZ               : {self.optimiser.NZ}\n")
+            f.write(f"F [Hz]           : {self.optimiser.F}\n")
+            f.write(f"FOV              : {self.optimiser.FOV}\n")
+            f.write(f"SLICETHICKNESS   : {self.optimiser.SLICETHICKNESS}\n")
+            f.write(f"DF               : {self._format_value(self.optimiser.DF)}\n")
+            f.write(f"DZ               : {self._format_value(self.optimiser.DZ)}\n\n")
+
+            f.write(f"FLIPMIN [deg]    : {self.optimiser.FLIPMIN}\n")
+            f.write(f"FLIPMAX [deg]    : {self.optimiser.FLIPMAX}\n")
+            f.write(f"NFLIP            : {self.optimiser.NFLIP}\n\n")
+
+            f.write(f"CORRCOEF         : {self.optimiser.CORRCOEF}\n")
+            f.write(f"L1               : {self.optimiser.L1}\n")
+            f.write(f"L2               : {self.optimiser.L2}\n")
+            f.write(f"L3               : {self.optimiser.L3}\n")
+            f.write(f"FATBAND [Hz]     : {self.optimiser.FATBAND}\n")
+            f.write(f"WATBAND [Hz]     : {self.optimiser.WATBAND}\n\n")
+
+            if self.optimiser.study is not None:
+                f.write("Optimisation results\n")
+                f.write("-" * 80 + "\n")
+                f.write(f"best_value       : {self.optimiser.study.best_value}\n")
+                f.write("best_params      :\n")
+                for key, value in self.optimiser.study.best_params.items():
+                    f.write(f"  {key}: {value}\n")
+                f.write("\n")
 
     # -------------------------------------------------------------------------
     # Plot methods adapted from old plots.py
@@ -255,7 +354,7 @@ class PulseResults:
         axs[1][1].set_title("|Mxy| zoom")
 
         fig.tight_layout()
-        plt.savefig(Path(self.figures_dir) / f"Pulse_{self.title}_{int(self.pulse.T)}ms.png")
+        plt.savefig(self.output_dir / f"Pulse_{self.title}.png", dpi=300, bbox_inches="tight")
         plt.show()
 
         print("2x2 plots done")
@@ -280,7 +379,7 @@ class PulseResults:
         ax2.set_xlim((0, self.pulse.T))
 
         fig.tight_layout()
-        plt.savefig(Path(self.figures_dir) / f"pulse_amp_phase_{self.title}.png")
+        plt.savefig(self.output_dir / f"pulse_amp_phase_{self.title}.png", dpi=300, bbox_inches="tight")
         plt.show()
 
         print("Amplitude/phase plotted!")
@@ -305,7 +404,7 @@ class PulseResults:
         ax2.set_xlim((0, self.pulse.T))
 
         fig.tight_layout()
-        plt.savefig(Path(self.figures_dir) / f"pulse_amp_phase_normed_{self.title}.png")
+        plt.savefig(self.output_dir / f"B1_map_{self.title}.png", dpi=300, bbox_inches="tight")
         plt.show()
 
         print("Normalised amplitude/phase plotted!")
@@ -326,7 +425,7 @@ class PulseResults:
         cbar.ax.set_ylabel("|Mxy| [a.u.]", rotation=90, va="bottom")
 
         fig.tight_layout()
-        plt.savefig(Path(self.figures_dir) / f"B1_{self.title}_{int(self.pulse.T)}ms.png")
+        plt.savefig(self.output_dir / f"B1_map_{self.title}.png", dpi=300, bbox_inches="tight")
         plt.show()
 
         print("B1_map plotted!")
