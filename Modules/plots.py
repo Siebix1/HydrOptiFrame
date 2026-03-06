@@ -163,26 +163,9 @@ def loss_plot(loss, N_epoch):
     plt.show()
     plt.savefig("Figures/loss_" + str(int(constants.T)) + "ms")
 
-    return print("B1_map plotted!")
+    return print("Loss plotted!")
 
 
-def plot_freq_wROI(M_xy,i):
-    grph_y_lim = 0.5
-    fig, ax = plt.subplots(figsize=(4.5, 3))
-    ax.plot(constants.DF, M_xy)
-    ax.add_patch(patches.Rectangle((constants.FATFREQ-constants.FATBAND, 0), constants.FATBAND*2, grph_y_lim, color='r', alpha=0.5))
-    ax.add_patch(patches.Rectangle((-constants.WATBAND, 0), constants.WATBAND*2, grph_y_lim, color='g', alpha=0.5))
-    plt.xlabel("Offset Frequency [Hz]")
-    plt.ylabel("Amplitude [a.u.]")
-    plt.title("Frequency Response")
-    plt.xlim((np.min(constants.DF), np.max(constants.DF)))
-    plt.ylim((0, grph_y_lim))
-    plt.tight_layout()
-    plt.savefig("Figures/mag/mag_"+str(i)+".png")
-    plt.show()
-
-
-    return
 
 def plot_amp(B1_amp, amp, i):
     B1_amp_tesla = B1_amp * 1000000 / (constants.GAMMA * constants.DT/1000)

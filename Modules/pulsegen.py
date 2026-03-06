@@ -80,22 +80,6 @@ def randBsplineN(a, p, flip=30, order =2):
 
 
 @njit
-def rampgradient(const1, const2, lin1, lin2, amp = np.pi):
-    tau = int(constants.T)/2
-    ntau = int(tau / constants.DT)
-    ninter = int((constants.NT - 2 * ntau))
-    da = (amp / 180 * np.pi) / (2 * tau / constants.DT)
-
-    ramp = np.linspace(-0.5, 0.5, ntau)
-    inter = np.zeros(ninter)
-    x =  np.linspace(-constants.FOV, constants.FOV, constants.NZ)
-    grad = np.concatenate((const1 + lin1 * ramp, inter, const2 + lin2 * ramp))
-
-    return grad.reshape(constants.NT, 1) @ x.reshape(1, constants.NZ)
-
-
-
-@njit
 def double_sinc(start1, stop1, start2, stop2, startphase1, stopphase1, startphase2, stopphase2):
     flip = 60
 
