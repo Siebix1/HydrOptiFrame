@@ -1,4 +1,4 @@
-Project: WE RF Pulse Design & Optimization Framework (“HydrOptiFrame”)
+Project: WE RF Pulse Optimization Framework (“HydrOptiFrame”)
 
 This repository contains code developed to implement the flexible framework for designing and optimizing water-excitation (WE) radio-frequency (RF) pulses, as described in Sieber et al. (2025). 
 
