@@ -11,7 +11,7 @@ Overview
 
 Testing 
 
-To test the script change the parameters of your pulse (field strength, duration, etc) in Modules/constants.py and run HydrOptiFrame.py. It will start to optimize a pulse and display the best pulse found at the end.
+To test the script change the parameters of your pulse and run main.py. It will start to optimize a pulse and display the best pulse found at the end. You can also use the UI with streamlit to get a browser tab that allows you to run optimizations and see the results
 
 
 Citation
