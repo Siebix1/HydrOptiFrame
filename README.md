@@ -7,8 +7,8 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/UI-Streamlit-ff4b4b.svg)](https://streamlit.io/)
 [![Optimization](https://img.shields.io/badge/Optimizer-CMA--ES%20%2F%20Optuna-purple.svg)](https://optuna.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://tlo.mit.edu/understand-ip/exploring-mit-open-source-license-comprehensive-guide)
-[![Paper](https://img.shields.io/badge/Paper-Magnetic%20Resonance%20in%20Medicine-orange.svg)](#citation)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Paper](https://img.shields.io/badge/Paper-Magn%20Reson%20Med-orange.svg)](https://pubmed.ncbi.nlm.nih.gov/39652471/)
 
 HydrOptiFrame designs smooth, time-efficient water-excitation (WE) RF pulses for MRI by optimizing RF amplitude and phase waveforms with B-spline interpolation and Bloch-equation simulation.
 
@@ -22,7 +22,7 @@ HydrOptiFrame designs smooth, time-efficient water-excitation (WE) RF pulses for
 
 The framework targets application-specific pulse design where conventional analytical WE pulse designs, such as 1-1 binomial or LIBRE pulses, may be limited by a small number of tunable parameters. Instead of manually tuning a small set of offsets and phases, HydrOptiFrame optimizes a richer set of RF amplitude and phase control points, converts them into a smooth pulse waveform, simulates the spectral response, and iteratively improves the pulse using a derivative-free optimizer.
 
-HydrOptiFrame was described in Sieber et al., *Magnetic Resonance in Medicine*, where optimized pulses were evaluated in simulation, phantom experiments, 3 T knee MRI, and 1.5 T free-running whole-heart cardiovascular MRI.
+HydrOptiFrame was described in [Sieber et al., *Magnetic Resonance in Medicine*](https://pubmed.ncbi.nlm.nih.gov/39652471/), where optimized pulses were evaluated in simulation, phantom experiments, 3 T knee MRI, and 1.5 T free-running whole-heart cardiovascular MRI.
 
 ---
 
@@ -57,15 +57,9 @@ HydrOptiFrame performs an iterative black-box optimization of an RF pulse:
 
 ---
 
-## Results examples from the publication
+## Results example at 1.5 T from the publication
 
-The publication demonstrates optimized BSIO pulses at both 3 T and 1.5 T. In simulation and phantom experiments, the BSIO pulses produced broader lipid suppression bands than conventional 1-1 WE and LIBRE pulses.
-
-<p align="center">
-  <img src="assets/pulse_comparison_3T.png" alt="3 T pulse comparison" width="900">
-</p>
-
-<p align="center"><em>Example 3 T comparison of non-suppressing, 1-1 WE, LIBRE, BSIO, and short BSIO pulses.</em></p>
+The [publication](https://pubmed.ncbi.nlm.nih.gov/39652471/) demonstrates the 1.5 T BSIO pulse in a challenging free-running whole-heart cardiovascular MRI setting. To test HydrOptiFrame across field strengths and applications, the authors designed a non-selective BSIO pulse for a 1.5 T free-running whole-heart MRA sequence, where fat-water separation is smaller and B0 inhomogeneity is often stronger around the lungs. The 1.5 T pulse targeted a 215 Hz fat-frequency offset with a 50 Hz suppression bandwidth and was compared with a standard 1-1 water-excitation pulse, a LIBRE pulse, and a non-fat-suppressing rectangular pulse. The RF pulses were implemented in a bSSFP free-running coronary MRA sequence using a 3D radial phyllotaxis trajectory, with 1.1 mm isotropic resolution and continuous acquisition of 126,478 radial spokes.
 
 <p align="center">
   <img src="assets/pulse_comparison_1p5T.png" alt="1.5 T pulse comparison" width="900">
@@ -333,7 +327,7 @@ For serious pulse optimization:
 
 ## Citation
 
-If you use HydrOptiFrame or build on this framework, please cite:
+If you use HydrOptiFrame or build on this framework, please cite the [associated publication](https://pubmed.ncbi.nlm.nih.gov/39652471/):
 
 ```bibtex
 @article{SieberHydrOptiFrame2025,
@@ -352,7 +346,7 @@ If you use HydrOptiFrame or build on this framework, please cite:
 
 ## License
 
-This project is released under the MIT License. Please cite the associated publication if you use HydrOptiFrame in academic work.
+This repository is distributed under the license included in [`LICENSE`](LICENSE).
 
 ---
 
