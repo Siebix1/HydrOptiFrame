@@ -7,7 +7,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/UI-Streamlit-ff4b4b.svg)](https://streamlit.io/)
 [![Optimization](https://img.shields.io/badge/Optimizer-CMA--ES%20%2F%20Optuna-purple.svg)](https://optuna.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)]
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![Paper](https://img.shields.io/badge/Paper-Magnetic%20Resonance%20in%20Medicine-orange.svg)](#citation)
 
 HydrOptiFrame designs smooth, time-efficient water-excitation (WE) RF pulses for MRI by optimizing RF amplitude and phase waveforms with B-spline interpolation and Bloch-equation simulation.
