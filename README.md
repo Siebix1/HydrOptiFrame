@@ -352,7 +352,7 @@ If you use HydrOptiFrame or build on this framework, please cite:
 
 ## License
 
-This repository is distributed under the license included in [`LICENSE`](LICENSE). At the time of writing, the repository contains an **AGPL-3.0** license file.
+This project is released under the MIT License. Please cite the associated publication if you use HydrOptiFrame in academic work.
 
 ---
 
