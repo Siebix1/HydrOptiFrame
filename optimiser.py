@@ -1,56 +1,46 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
+from typing import Callable, Optional
+
 import numpy as np
 import optuna
 from numba import njit
 
 from pulse import RFPulse
 
-@njit
-def _pulse_offset_relax_kernel(B1_amp, B1_phase, dF, dt, T1, T2, nt):
-    M0 = np.array([0.0, 0.0, 1.0], dtype=np.float64)
-    nf = len(dF)
-    M = np.zeros((nf, nt, 3), dtype=np.float64)
-
-    for j in range(nf):
-        a, b = _freeprecess(dt, T1, T2, 0.0)
-
-        for i in range(nt):
-            rth = _throtoffres(B1_amp[i], B1_phase[i], dF[j], dt)
-
-            if i == 0:
-                M[j, i, :] = (a @ rth @ M0.reshape(3, 1) + b).reshape(3,)
-            else:
-                M[j, i, :] = (a @ rth @ M[j, i - 1, :].reshape(3, 1) + b).reshape(3,)
-
-    return M
-
 
 @njit
 def _zrot(phi):
-    return np.array((
-        (np.cos(phi), np.sin(phi), 0.0),
-        (-np.sin(phi), np.cos(phi), 0.0),
-        (0.0, 0.0, 1.0),
-    ))
+    return np.array(
+        (
+            (np.cos(phi), np.sin(phi), 0.0),
+            (-np.sin(phi), np.cos(phi), 0.0),
+            (0.0, 0.0, 1.0),
+        )
+    )
 
 
 @njit
 def _xrot(phi):
-    return np.array((
-        (1.0, 0.0, 0.0),
-        (0.0, np.cos(phi), np.sin(phi)),
-        (0.0, -np.sin(phi), np.cos(phi)),
-    ))
+    return np.array(
+        (
+            (1.0, 0.0, 0.0),
+            (0.0, np.cos(phi), np.sin(phi)),
+            (0.0, -np.sin(phi), np.cos(phi)),
+        )
+    )
 
 
 @njit
 def _yrot(phi):
-    return np.array((
-        (np.cos(phi), 0.0, -np.sin(phi)),
-        (0.0, 1.0, 0.0),
-        (np.sin(phi), 0.0, np.cos(phi)),
-    ))
+    return np.array(
+        (
+            (np.cos(phi), 0.0, -np.sin(phi)),
+            (0.0, 1.0, 0.0),
+            (np.sin(phi), 0.0, np.cos(phi)),
+        )
+    )
 
 
 @njit
@@ -76,15 +66,18 @@ def _throtoffres(phi, theta, domega, dt):
 def _freeprecess(T, T1, T2, df):
     E1 = np.exp(-T / T1)
     E2 = np.exp(-T / T2)
+
     alpha = 2 * np.pi * T * df / 1000.0
 
-    A = np.array((
-        (E2, 0.0, 0.0),
-        (0.0, E2, 0.0),
-        (0.0, 0.0, E1),
-    ))
-    Rz = _zrot(alpha)
+    A = np.array(
+        (
+            (E2, 0.0, 0.0),
+            (0.0, E2, 0.0),
+            (0.0, 0.0, E1),
+        )
+    )
 
+    Rz = _zrot(alpha)
     Afp = A @ Rz
     Bfp = np.array((0.0, 0.0, 1.0 - E1)).reshape((3, 1))
 
@@ -95,6 +88,7 @@ def _freeprecess(T, T1, T2, df):
 def _pulse_offset_relax_kernel(B1_amp, B1_phase, dF, dt, T1, T2, nt):
     M0 = np.array([0.0, 0.0, 1.0], dtype=np.float64)
     nf = len(dF)
+
     M = np.zeros((nf, nt, 3), dtype=np.float64)
 
     for j in range(nf):
@@ -110,12 +104,14 @@ def _pulse_offset_relax_kernel(B1_amp, B1_phase, dF, dt, T1, T2, nt):
 
     return M
 
+
 @dataclass
 class PulseOptimiser:
     pulse_template: RFPulse
 
     n_points: int = 15
     n_epochs: int = 1000
+
     amp_lim_low: float = 0.01
     amp_lim_high: float = 1.0
     phi_lim: float = 4 * np.pi
@@ -140,7 +136,6 @@ class PulseOptimiser:
     NFLIP: int = 100
 
     CORRCOEF: float = 1.0
-
     L1: float = 100.0
     L2: float = 5.0
     L3: float = 30.0
@@ -148,9 +143,9 @@ class PulseOptimiser:
     FATBAND: float = 50.0
     WATBAND: float = 10.0
 
-    study: optuna.Study | None = field(default=None, init=False)
-    best_pulse: RFPulse | None = field(default=None, init=False)
-
+    study: Optional[optuna.Study] = field(default=None, init=False)
+    best_pulse: Optional[RFPulse] = field(default=None, init=False)
+    
     @property
     def SYSFREQ(self) -> float:
         return self.GYR * self.SYSFIELD
@@ -175,7 +170,7 @@ class PulseOptimiser:
         amp = np.array(
             [
                 trial.suggest_float(
-                    f"amp{i+1}",
+                    f"amp{i + 1}",
                     self.amp_lim_low,
                     self.amp_lim_high,
                     step=0.001,
@@ -188,7 +183,7 @@ class PulseOptimiser:
         phi = np.array(
             [
                 trial.suggest_float(
-                    f"phi{i+1}",
+                    f"phi{i + 1}",
                     -self.phi_lim,
                     self.phi_lim,
                     step=0.001,
@@ -238,7 +233,11 @@ class PulseOptimiser:
             dF = self.DF
 
         flip_values = np.linspace(self.FLIPMIN, self.FLIPMAX, self.NFLIP)
-        M = np.zeros((self.NFLIP, len(dF), self.pulse_template.NT, 3), dtype=np.float64)
+
+        M = np.zeros(
+            (self.NFLIP, len(dF), self.pulse_template.NT, 3),
+            dtype=np.float64,
+        )
 
         for i, flip in enumerate(flip_values):
             temp_pulse = RFPulse(
@@ -257,13 +256,15 @@ class PulseOptimiser:
             M[i, :, :, :] = self.pulse_offset_relax(B1_amp, B1_phase, dF)
 
         return M
-    
+
     def _fat_water_ratio(self, M_xy: np.ndarray) -> float:
         fatband = self.FATBAND * self.CORRCOEF
+
         s1 = self.FATFREQ - fatband
         s2 = self.FATFREQ + fatband
 
         waterband = 20 * self.CORRCOEF
+
         s3 = -waterband
         s4 = waterband
 
@@ -280,13 +281,14 @@ class PulseOptimiser:
 
         return fat_signal / water_signal
 
-
     def _water_fat_ratio(self, M_xy: np.ndarray) -> float:
         fatband = 20
+
         s1 = self.FATFREQ - fatband
         s2 = self.FATFREQ + fatband
 
         waterband = 50
+
         s3 = -waterband
         s4 = waterband
 
@@ -303,10 +305,10 @@ class PulseOptimiser:
 
         return water_signal / fat_signal
 
-
     def _derivative_fat(self, M_xy: np.ndarray) -> float:
         s1 = -540
         s2 = -340
+
         d_f = 2 * self.F / self.NF
 
         start = int((self.F + s1) / d_f)
@@ -317,9 +319,9 @@ class PulseOptimiser:
 
         return float(np.mean(derivative_sum**2))
 
-
     def _mean_water(self, M_xy: np.ndarray) -> float:
         waterband = 20 * self.CORRCOEF
+
         s3 = -waterband
         s4 = waterband
 
@@ -330,9 +332,9 @@ class PulseOptimiser:
 
         return float(np.mean(M_xy[startw:stopw]))
 
-
     def _mean_fat(self, M_xy: np.ndarray) -> float:
         fatband = 20
+
         s3 = self.FATFREQ - fatband
         s4 = self.FATFREQ + fatband
 
@@ -343,9 +345,9 @@ class PulseOptimiser:
 
         return float(np.mean(M_xy[start:stop]))
 
-
     def _l2_fat(self, M_xy: np.ndarray) -> float:
         fatband = self.FATBAND * self.CORRCOEF
+
         s3 = self.FATFREQ - fatband
         s4 = self.FATFREQ + fatband
 
@@ -358,17 +360,18 @@ class PulseOptimiser:
         offset_indice = int(offset_band / d_f)
 
         weight_fltr = np.ones((stop - start + offset_indice))
+
         center = int((stop - start) / 2)
+        weight_fltr[center - 5 : center + 5] = 20
+        weight_fltr[center - 2 : center + 2] = 140
 
-        weight_fltr[center - 5:center + 5] = 20
-        weight_fltr[center - 2:center + 2] = 140
+        M1 = M_xy[start : stop + offset_indice] * weight_fltr
 
-        M1 = M_xy[start:stop + offset_indice] * weight_fltr
         return float(np.mean(M1**2))
-
 
     def _l2_water(self, M_xy: np.ndarray) -> float:
         watband = 50
+
         s3 = -watband
         s4 = watband
 
@@ -381,17 +384,20 @@ class PulseOptimiser:
         offset_indice = int(offset_band / d_f)
 
         weight_fltr = np.ones((stop - start + offset_indice))
+
         center = int((stop - start) / 2)
+        weight_fltr[center - 5 : center + 5] = 20
+        weight_fltr[center - 2 : center + 2] = 80
 
-        weight_fltr[center - 5:center + 5] = 20
-        weight_fltr[center - 2:center + 2] = 80
+        M1 = M_xy[start : stop + offset_indice] * weight_fltr
 
-        M1 = M_xy[start:stop + offset_indice] * weight_fltr
         return float(np.mean(M1**2))
 
-
     def composed_loss(self, M: np.ndarray, verbose: int = 0) -> float:
-        M_xy = np.abs(M[:, self.pulse_template.NT - 1, 0] + 1j * M[:, self.pulse_template.NT - 1, 1])
+        M_xy = np.abs(
+            M[:, self.pulse_template.NT - 1, 0]
+            + 1j * M[:, self.pulse_template.NT - 1, 1]
+        )
 
         mean_w = self._mean_water(M_xy)
         mean_l2_f = self._l2_fat(M_xy)
@@ -406,18 +412,51 @@ class PulseOptimiser:
 
     def objective(self, trial: optuna.Trial) -> float:
         pulse = self._suggest_pulse(trial)
+
         B1_amp, B1_phase = pulse.build_waveform()
         M = self.pulse_offset_relax(B1_amp, B1_phase, self.DF)
+
         return float(self.composed_loss(M))
 
-    def optimise(self) -> optuna.Study:
+    def optimise(
+        self,
+        progress_callback: Optional[Callable[[int, int, Optional[float]], None]] = None,
+    ) -> optuna.Study:
         sampler = optuna.samplers.CmaEsSampler(
             n_startup_trials=int(np.round(self.n_epochs / 10)),
             sigma0=self.sigma0,
         )
 
-        self.study = optuna.create_study(sampler=sampler, direction="minimize")
-        self.study.optimize(self.objective, n_trials=self.n_epochs)
+        self.study = optuna.create_study(
+            sampler=sampler,
+            direction="minimize",
+        )
+
+        def _optuna_progress_callback(
+            study: optuna.Study,
+            trial: optuna.trial.FrozenTrial,
+        ) -> None:
+            if progress_callback is None:
+                return
+
+            completed_trials = min(len(study.trials), self.n_epochs)
+
+            try:
+                best_value = float(study.best_value)
+            except ValueError:
+                best_value = None
+
+            progress_callback(
+                completed_trials,
+                self.n_epochs,
+                best_value,
+            )
+
+        self.study.optimize(
+            self.objective,
+            n_trials=self.n_epochs,
+            callbacks=[_optuna_progress_callback],
+        )
 
         self.best_pulse = RFPulse.from_best_params(
             best_params=self.study.best_params,
@@ -430,16 +469,19 @@ class PulseOptimiser:
             spline_order=self.pulse_template.spline_order,
             waveform_params=self.pulse_template.waveform_params.copy(),
         )
+
         return self.study
 
     def get_best_pulse(self) -> RFPulse:
         if self.best_pulse is None:
             raise RuntimeError("Run optimise() first.")
+
         return self.best_pulse
 
     def simulate_pulse(self, pulse: RFPulse):
         B1_amp, B1_phase = pulse.build_waveform()
         M = self.pulse_offset_relax(B1_amp, B1_phase, self.DF)
+
         return B1_amp, B1_phase, M
 
     def simulate_b1_map(self, pulse: RFPulse):
